@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">PDS</string>
+    <string name="google_map_api_key">AIzaSyDk4TIwKaY8iOsYg2lZW-WI8PKpilYVmTw</string>
 </resources>
