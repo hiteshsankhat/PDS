@@ -16,19 +16,32 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
+import android.widget.AdapterView;
+import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.places.AutocompletePrediction;
+import com.google.android.gms.location.places.GeoDataClient;
+import com.google.android.gms.location.places.Place;
+import com.google.android.gms.location.places.PlaceBuffer;
+import com.google.android.gms.location.places.PlaceBufferResponse;
+import com.google.android.gms.location.places.Places;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -37,22 +50,31 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MapActivity extends AppCompatActivity implements OnMapReadyCallback {
+import hiteshsankhat.github.com.pds.Models.PlacesInfo;
+
+public class MapActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleApiClient.OnConnectionFailedListener {
 
     private static final String TAG = "MapActivity";
 
     private static final String FINE_LOCTION = Manifest.permission.ACCESS_FINE_LOCATION;
     private static final String COURSE_LOCTION = Manifest.permission.ACCESS_COARSE_LOCATION;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1234;
+    private static final float DEFAULT_ZOOM = 15f;
+    private static final LatLngBounds LAT_LNG_BOUNDS = new LatLngBounds(new LatLng(-40, -160), new LatLng(71, 136));
+    private PlacesInfo mPlace;
 
     //widgets
-    private EditText mSearchText;
+    private AutoCompleteTextView mSearchText;
     private ImageView mGPS;
+
+
     //variables
     private boolean mLocationPermissionsGranted = false;
     private GoogleMap mMap;
     private FusedLocationProviderClient mFusedLocationProviderClient;
-    private static final float DEFAULT_ZOOM = 17f;
+    private PlaceAutocompleteAdapter mPlaceAutocompleteAdapter;
+    private GoogleApiClient mGoogleApiClient;
+    private GeoDataClient mGeoDataClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,6 +91,21 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     }
 
     private void init(){
+
+//        mGoogleApiClient = new GoogleApiClient
+//                .Builder(this)
+//                .addApi(Places.GEO_DATA_API)
+//                .addApi(Places.PLACE_DETECTION_API)
+//                .enableAutoManage(this, this)
+//                .build();
+        mGeoDataClient =Places.getGeoDataClient(this, null);
+
+        mSearchText.setOnItemClickListener(mAutoCompleteListener);
+
+        mPlaceAutocompleteAdapter = new PlaceAutocompleteAdapter(this, mGeoDataClient, LAT_LNG_BOUNDS, null );
+
+        mSearchText.setAdapter(mPlaceAutocompleteAdapter);
+
         mSearchText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView textView, int actionID, KeyEvent keyEvent) {
@@ -222,5 +259,75 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         this.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
     }
 
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+    }
+
+
+
+    /* -------------------Auto Complete -----------------------*/
+
+    private AdapterView.OnItemClickListener mAutoCompleteListener =  new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+            hideSoftKeyboard();
+
+            final AutocompletePrediction item = mPlaceAutocompleteAdapter.getItem(i);
+            final String PlaceId = item.getPlaceId();
+            mGeoDataClient.getPlaceById(PlaceId).addOnCompleteListener(new OnCompleteListener<PlaceBufferResponse>() {
+                @Override
+                public void onComplete(@NonNull Task<PlaceBufferResponse> task) {
+                    if (task.isSuccessful()) {
+                        PlaceBufferResponse places = task.getResult();
+                        Place myPlace = places.get(0);
+                        Log.i(TAG, "Place found: " + myPlace.getName());
+                        try {
+                            mPlace = new PlacesInfo();
+                            mPlace.setName(myPlace.getName().toString());
+                            mPlace.setId(myPlace.getId());
+                            mPlace.setLatLng(myPlace.getLatLng());
+                            mPlace.setAddress(myPlace.getAddress().toString());
+                        }catch(NullPointerException e){
+                            Log.e(TAG, "onResult: Null Pointer " + e.getMessage());
+                        }
+
+            moveCamera(myPlace.getLatLng(), DEFAULT_ZOOM, (String) myPlace.getName());
+                        places.release();
+                    } else {
+                        Log.e(TAG, "Place not found.");
+                    }
+                }
+            });
+        }
+    };
+
+//    private ResultCallback<PlaceBuffer> mUpdatePlaceCallback =  new ResultCallback<PlaceBuffer>() {
+//        @Override
+//        public void onResult(@NonNull PlaceBuffer places) {
+//            if (!places.getStatus().isSuccess()){
+//                places.release();
+//                return;
+//            }
+//
+//            final Place place = places.get(0);
+//
+//            try {
+//
+//                mPlace = new PlacesInfo();
+//                mPlace.setName(place.getName().toString());
+//                mPlace.setId(place.getId());
+//                mPlace.setLatLng(place.getLatLng());
+//                mPlace.setAddress(place.getAddress().toString());
+//
+//            }catch(NullPointerException e){
+//                Log.e(TAG, "onResult: Null Pointer " + e.getMessage());
+//            }
+//
+//            moveCamera(place.getLatLng(), DEFAULT_ZOOM, (String) place.getName());
+//            places.release();
+//        }
+//    };
 
 }
