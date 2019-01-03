@@ -12,24 +12,46 @@
         android:layout_height="match_parent"
         android:layout_marginTop="20dp"
         android:layout_marginLeft="20dp"
+        android:layout_marginRight="20dp"
         android:orientation="vertical">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <Button
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:text="Map"
+                android:id="@+id/btnMap"
+                android:textStyle="bold"
+                android:textSize="20dp"
+                />
+
+            <Button
+                android:id="@+id/btn_LogOut"
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_gravity="right|end"
+                android:text="LogOut"
+                android:textSize="20dp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
         <Button
-            android:layout_width="150dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Map"
-            android:id="@+id/btnMap"
+            android:text="Open Camera"
+            android:id="@+id/openCamera"
             android:textStyle="bold"
             android:textSize="20dp"
             />
 
-        <Button
-            android:layout_width="150dp"
-            android:layout_height="wrap_content"
-            android:text="LogOut"
-            android:id="@+id/btn_LogOut"
-            android:textStyle="bold"
-            android:textSize="20dp"
-            />
+        <android.support.v7.widget.AppCompatImageView
+            android:id="@+id/imageview_upload"
+            android:layout_width="match_parent"
+            android:layout_height="400dp"
+            android:layout_marginTop="10dp" />
     </LinearLayout>
 
 </android.support.constraint.ConstraintLayout>

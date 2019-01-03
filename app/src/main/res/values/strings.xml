@@ -18,4 +18,5 @@
 
 
     <string name="firebase_user">Users</string>
+    <string name="pothole_database">PotholeDB</string>
 </resources>

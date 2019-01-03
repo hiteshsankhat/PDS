@@ -2,23 +2,31 @@ package hiteshsankhat.github.com.pds;
 
 import android.Manifest;
 import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -34,31 +42,77 @@ import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStates;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreSettings;
+import com.google.firebase.firestore.GeoPoint;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.OnProgressListener;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
-public class MainActivity extends AppCompatActivity {
+import java.util.UUID;
+
+import hiteshsankhat.github.com.pds.Models.PotholeModels;
+
+public class MainActivity extends AppCompatActivity implements LocationListener {
     private static final int REQUEST_CHECK_SETTINGS = 0x1;
     private static GoogleApiClient mGoogleApiClient;
     private static final int ACCESS_FINE_LOCATION_INTENT_ID = 3;
     private static final String BROADCAST_ACTION = "android.location.PROVIDERS_CHANGED";
 	private static final String TAG = "MainActivity";
 	private static final int ERROR_DIALOG_REQUEST = 9001;
+    private static final int CAMERA_REQUEST_CODE = 1234;
+    private ImageView imageView;
 
-    @Override
+
+    private FirebaseStorage storage;
+    StorageReference storageReference;
+	private FirebaseAuth mAuth;
+	private FirebaseFirestore mDB;
+
+	private GeoPoint start = null;
+	LocationManager locationManager;
+
+
+
+	@Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         initGoogleAPIClient();//Init Google API Client
         checkPermissions();//Check Permission
+
+
+        imageView = findViewById(R.id.imageview_upload);
+        storage = FirebaseStorage.getInstance();
+        storageReference = storage.getReference();
+		mAuth = FirebaseAuth.getInstance();
+		mDB = FirebaseFirestore.getInstance();
 		if(isServicesOK()){
+			getLocation();
 			init();
 		}
     }
 
 
 	private void init(){
-		Button btnMap = (Button) findViewById(R.id.btnMap);
+		Button btnMap = findViewById(R.id.btnMap);
 		Button logout = findViewById(R.id.btn_LogOut);
+		Button openCamera = findViewById(R.id.openCamera);
+
+		openCamera.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                startActivityForResult(intent, CAMERA_REQUEST_CODE);
+            }
+        });
 		logout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -194,10 +248,98 @@ public class MainActivity extends AppCompatActivity {
                         break;
                 }
                 break;
+            case CAMERA_REQUEST_CODE:
+                switch (resultCode){
+                    case RESULT_OK:
+                        Uri uri = data.getData();
+                        Log.d(TAG, "onActivityResult: "+uri);
+                        try{
+                            Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(),uri);
+                            imageView.setImageBitmap(bitmap);
+                            uploadimage(uri);
+                        }catch (Exception e){
+                            Log.e(TAG, "onActivityResult: Exception:- "+e.getMessage());
+                        }
+                        break;
+                    case RESULT_CANCELED:
+                        Log.d(TAG, "onActivityResult: Cancel");
+                        break;
+                }
         }
     }
 
-    @Override
+	private void uploadimage(Uri uri) {
+    	if(uri != null){
+    		final ProgressDialog progressDialog = new ProgressDialog(this);
+    		progressDialog.setTitle("Uploading to Firebase");
+    		progressDialog.show();
+			PotholeModels potholeModels = new PotholeModels();
+			String nameFile =  UUID.randomUUID().toString();
+			StorageReference ref = storageReference.child("images/"+ nameFile);
+			getLocation();
+			if(start != null){
+				potholeModels.setGeoPoint(start);
+			}else{
+				potholeModels.setGeoPoint(new GeoPoint(0, 0));
+			}
+			potholeModels.setFileName(nameFile);
+
+			FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
+					.setTimestampsInSnapshotsEnabled(true)
+					.build();
+			mDB.setFirestoreSettings(settings);
+
+			DocumentReference newUser = mDB.collection(getString(R.string.pothole_database))
+					.document();
+
+			newUser.set(potholeModels).addOnCompleteListener(new OnCompleteListener<Void>() {
+				@Override
+				public void onComplete(@NonNull Task<Void> task) {
+					Log.d(TAG, "onComplete: DONE");
+					if(task.isSuccessful()){
+						Toast.makeText(MainActivity.this, "DOne", Toast.LENGTH_SHORT).show();
+					}
+					else{
+						Log.d(TAG, "onComplete: Failure "+task.getException());
+						View view = findViewById(android.R.id.content);
+						Snackbar.make(view, "Something went Wrong.", Snackbar.LENGTH_SHORT).show();
+					}
+				}
+			});
+			ref.putFile(uri)
+					.addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+						@Override
+						public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+							progressDialog.dismiss();
+							Toast.makeText(MainActivity.this, "Uploaded", Toast.LENGTH_SHORT).show();
+						}
+					})
+					.addOnFailureListener(new OnFailureListener() {
+						@Override
+						public void onFailure(@NonNull Exception e) {
+							progressDialog.dismiss();
+							Toast.makeText(MainActivity.this, "Failed", Toast.LENGTH_SHORT).show();
+						}
+					})
+					.addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
+						@Override
+						public void onProgress(UploadTask.TaskSnapshot taskSnapshot) {
+							double progress = (100.0*taskSnapshot.getBytesTransferred()/taskSnapshot
+									.getTotalByteCount());
+							progressDialog.setMessage("Uploaded "+(int)progress+"%");						}
+					});
+		}
+	}
+	void getLocation() {
+		try {
+			locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+			locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 5, this);
+		}
+		catch(SecurityException e) {
+			e.printStackTrace();
+		}
+	}
+	@Override
     protected void onResume() {
         super.onResume();
         registerReceiver(gpsLocationReceiver, new IntentFilter(BROADCAST_ACTION));//Register broadcast receiver to check the status of GPS
@@ -269,4 +411,24 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
+	@Override
+	public void onLocationChanged(Location location) {
+    	start = new GeoPoint(location.getLatitude(), location.getLongitude());
+	}
+
+	@Override
+	public void onStatusChanged(String s, int i, Bundle bundle) {
+
+	}
+
+	@Override
+	public void onProviderEnabled(String s) {
+
+	}
+
+	@Override
+	public void onProviderDisabled(String s) {
+		Toast.makeText(this, "Please Enable GPS and Internet", Toast.LENGTH_SHORT).show();
+	}
 }
