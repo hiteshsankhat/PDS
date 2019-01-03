@@ -1,11 +1,9 @@
 package hiteshsankhat.github.com.pds.Models;
 
-import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.AsyncTask;
 import android.util.Log;
 
-import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.PolylineOptions;
@@ -22,7 +20,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import hiteshsankhat.github.com.pds.R;
 
 
 public class DrawRoute {

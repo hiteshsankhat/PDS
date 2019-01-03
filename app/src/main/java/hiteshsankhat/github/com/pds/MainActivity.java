@@ -34,6 +34,7 @@ import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStates;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.google.firebase.auth.FirebaseAuth;
 
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CHECK_SETTINGS = 0x1;
@@ -57,6 +58,17 @@ public class MainActivity extends AppCompatActivity {
 
 	private void init(){
 		Button btnMap = (Button) findViewById(R.id.btnMap);
+		Button logout = findViewById(R.id.btn_LogOut);
+		logout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                FirebaseAuth.getInstance().signOut();
+                Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+                startActivity(intent);
+                finish();
+
+            }
+        });
 		btnMap.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View view) {
