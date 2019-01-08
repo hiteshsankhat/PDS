@@ -1,6 +1,5 @@
 package hiteshsankhat.github.com.pds;
 
-import android.*;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
@@ -17,12 +16,10 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
-import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.AutoCompleteTextView;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -51,14 +48,24 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreSettings;
+import com.google.firebase.firestore.QuerySnapshot;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import hiteshsankhat.github.com.pds.Models.DrawRoute;
 import hiteshsankhat.github.com.pds.Models.PlaceInfo;
+import hiteshsankhat.github.com.pds.Models.PotholeModels;
 
 /**
  * Created by User on 10/2/2017.
@@ -119,6 +126,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private Marker mMarker;
     private LatLng start, end;
     String apikey;
+	private FirebaseFirestore mDB;
+
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -129,11 +138,64 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         mInfo = findViewById(R.id.place_info);
         mPlacePicker = findViewById(R.id.place_picker);
         mDirection = findViewById(R.id.direction);
+		mDB = FirebaseFirestore.getInstance();
         apikey = getString(R.string.google_map_api_key);
         mFusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         getLocationPermission();
-
+        getData();
     }
+
+
+	private void getData(){
+		FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
+				.setTimestampsInSnapshotsEnabled(true)
+				.build();
+		mDB.setFirestoreSettings(settings);
+
+		CollectionReference reference = mDB.collection(getString(R.string.pothole_database));
+		reference.get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+			@Override
+			public void onComplete(@NonNull Task<QuerySnapshot> task) {
+				Log.d(TAG, "onComplete: collection"+ task.getResult().getDocuments());
+				if(task.isSuccessful()){
+					List<DocumentSnapshot> doc = task.getResult().getDocuments();
+
+					for(DocumentSnapshot documentSnapshot: doc){
+						PotholeModels potholeModel = documentSnapshot.toObject(PotholeModels.class);
+						LatLng latLng = new LatLng(potholeModel.getGeoPoint().getLatitude(), potholeModel.getGeoPoint().getLongitude());
+						mMap.addMarker(new MarkerOptions().position(latLng).title(potholeModel.getFileName()));
+						Log.d(TAG, "onComplete: doccc "  + documentSnapshot.toObject(PotholeModels.class));
+					}
+				}
+
+			}
+		});
+//		ref.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+//			@Override
+//			public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+//				Log.d(TAG, "onComplete:  mDB.collection(getString(R.string.pothole_database))"+  mDB.collection(getString(R.string.pothole_database)).document().get().getResult());
+//				Log.d(TAG, "onComplete: sssssss "+task.getResult());
+//				Log.d(TAG, "onComplete: result"+task.getResult().toObject(PotholeModels.class));
+//			}
+//		});
+		final FirebaseDatabase database = FirebaseDatabase.getInstance();
+		DatabaseReference ref = database.getReference(getString(R.string.pothole_database));
+
+//// Attach a listener to read the data at our posts reference
+//		ref.addValueEventListener(new ValueEventListener() {
+//			@Override
+//			public void onDataChange(DataSnapshot dataSnapshot) {
+//				Log.d(TAG, "onDataChange: dataSnapshot" + dataSnapshot);
+//				PotholeModels post = dataSnapshot.getValue(PotholeModels.class);
+////				System.out.println(post);
+//			}
+//
+//			@Override
+//			public void onCancelled(DatabaseError databaseError) {
+//				System.out.println("The read failed: " + databaseError.getCode());
+//			}
+//		});
+	}
 
     private void init(){
         Log.d(TAG, "init: initializing");
@@ -257,6 +319,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             end = new LatLng(address.getLatitude(), address.getLongitude());
 
             mMap.clear();
+            getData();
             moveCamera(new LatLng(address.getLatitude(), address.getLongitude()), DEFAULT_ZOOM,
                     address.getAddressLine(0));
         }
@@ -291,8 +354,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         Log.d(TAG, "moveCamera: moving the camera to: lat: " + latLng.latitude + ", lng: " + latLng.longitude );
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom));
 
-        mMap.clear();
-
         mMap.setInfoWindowAdapter(new CustomInfoWindowAdapter(MapActivity.this));
 
         if(placeInfo != null){
@@ -321,7 +382,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     private void moveCamera(LatLng latLng, float zoom, String title){
         Log.d(TAG, "moveCamera: moving the camera to: lat: " + latLng.latitude + ", lng: " + latLng.longitude );
-        mMap.clear();
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom));
 
         if(!title.equals("My Location")){

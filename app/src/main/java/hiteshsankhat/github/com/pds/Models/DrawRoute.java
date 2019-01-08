@@ -36,6 +36,7 @@ public class DrawRoute {
 		String parameters = str_start + "&" + str_end + "&" + keyApi;
 		String output = "json";
 		String url = "https://maps.googleapis.com/maps/api/directions/" + output + "?" + parameters;
+		Log.d(TAG, "getUrl: "+ url);
 		return url;
 	}
 

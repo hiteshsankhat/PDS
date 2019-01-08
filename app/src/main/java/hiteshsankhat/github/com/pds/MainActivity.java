@@ -47,15 +47,25 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.firestore.GeoPoint;
+import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import hiteshsankhat.github.com.pds.Models.PotholeModels;
@@ -80,7 +90,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 	LocationManager locationManager;
 
 
-
 	@Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -97,9 +106,59 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 		if(isServicesOK()){
 			getLocation();
 			init();
+			getData();
 		}
     }
 
+	private void getData(){
+		FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
+				.setTimestampsInSnapshotsEnabled(true)
+				.build();
+		mDB.setFirestoreSettings(settings);
+
+		CollectionReference reference = mDB.collection(getString(R.string.pothole_database));
+		reference.get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+			@Override
+			public void onComplete(@NonNull Task<QuerySnapshot> task) {
+				Log.d(TAG, "onComplete: collection"+ task.getResult().getDocuments());
+				if(task.isSuccessful()){
+					List<DocumentSnapshot> doc = task.getResult().getDocuments();
+
+					for(DocumentSnapshot documentSnapshot: doc){
+						PotholeModels potholeModelss = documentSnapshot.toObject(PotholeModels.class);
+
+						Log.d(TAG, "onComplete: doccc "  + documentSnapshot.toObject(PotholeModels.class));
+					}
+				}
+
+			}
+		});
+//		ref.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+//			@Override
+//			public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+//				Log.d(TAG, "onComplete:  mDB.collection(getString(R.string.pothole_database))"+  mDB.collection(getString(R.string.pothole_database)).document().get().getResult());
+//				Log.d(TAG, "onComplete: sssssss "+task.getResult());
+//				Log.d(TAG, "onComplete: result"+task.getResult().toObject(PotholeModels.class));
+//			}
+//		});
+		final FirebaseDatabase database = FirebaseDatabase.getInstance();
+		DatabaseReference ref = database.getReference(getString(R.string.pothole_database));
+
+//// Attach a listener to read the data at our posts reference
+//		ref.addValueEventListener(new ValueEventListener() {
+//			@Override
+//			public void onDataChange(DataSnapshot dataSnapshot) {
+//				Log.d(TAG, "onDataChange: dataSnapshot" + dataSnapshot);
+//				PotholeModels post = dataSnapshot.getValue(PotholeModels.class);
+////				System.out.println(post);
+//			}
+//
+//			@Override
+//			public void onCancelled(DatabaseError databaseError) {
+//				System.out.println("The read failed: " + databaseError.getCode());
+//			}
+//		});
+	}
 
 	private void init(){
 		Button btnMap = findViewById(R.id.btnMap);

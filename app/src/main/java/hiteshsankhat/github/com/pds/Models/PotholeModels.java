@@ -9,13 +9,20 @@ public class PotholeModels {
 	public PotholeModels() {
 	}
 
+	@Override
+	public String toString() {
+		return "PotholeModels{" +
+				"geoPoint=" + geoPoint +
+				", fileName='" + fileName + '\'' +
+				'}';
+	}
+
 	public PotholeModels(GeoPoint geoPoint, String fileName) {
 		this.geoPoint = geoPoint;
 		this.fileName = fileName;
 	}
 
-	public GeoPoint getGeoPoint() {
-		return geoPoint;
+	public GeoPoint getGeoPoint() {return geoPoint;
 	}
 
 	public void setGeoPoint(GeoPoint geoPoint) {
